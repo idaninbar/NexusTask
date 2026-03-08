@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Digital Coupon Marketplace</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        max-width: 800px;
+        margin: auto;
+      }
+      .card {
+        border: 1px solid #ccc;
+        padding: 15px;
+        margin: 10px 0;
+        background-color: #f9f9f9;
+      }
+      .admin-card {
+        border-color: #007bff;
+        background-color: #e9f5ff;
+      }
+      .sold {
+        color: red;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Coupon Marketplace</h1>
+
+    <hr />
+    <h2>Admin Mode</h2>
+
+    <h3>Create New Coupon</h3>
+    <form id="createForm">
+      <input type="text" id="name" placeholder="Name" required />
+      <input type="text" id="desc" placeholder="Description" required />
+      <input
+        type="text"
+        id="img"
+        placeholder="Image URL"
+        required
+      /><br /><br />
+      <input type="number" id="cost" placeholder="Cost Price" required />
+      <input
+        type="number"
+        id="margin"
+        placeholder="Margin %"
+        required
+      /><br /><br />
+      <select id="vType">
+        <option value="STRING">STRING</option>
+        <option value="IMAGE">IMAGE</option>
+      </select>
+      <input type="text" id="val" placeholder="Secret Coupon Value" required />
+      <button type="submit">Create Coupon</button>
+    </form>
+
+    <h3>All Coupons (Admin View)</h3>
+    <button onclick="loadAdminCoupons()">Load All Coupons</button>
+    <div id="admin-catalog"></div>
+
+    <hr />
+
+    <h2>Customer Mode</h2>
+    <h3>Available Coupons</h3>
+    <button onclick="loadCustomerCoupons()">Refresh Customer Catalog</button>
+    <div id="customer-catalog"></div>
+
+    <script>
+      // ADMIN: Create Coupon
+      document
+        .getElementById("createForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const data = {
+            name: document.getElementById("name").value,
+            description: document.getElementById("desc").value,
+            image_url: document.getElementById("img").value,
+            cost_price: Number(document.getElementById("cost").value),
+            margin_percentage: Number(document.getElementById("margin").value),
+            value_type: document.getElementById("vType").value,
+            value: document.getElementById("val").value,
+          };
+
+          const res = await fetch("/api/v1/admin/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+
+          if (res.ok) {
+            alert("Coupon Created Successfully!");
+            document.getElementById("createForm").reset();
+            loadAdminCoupons();
+            loadCustomerCoupons();
+          } else {
+            const err = await res.json();
+            alert(`Error: ${err.message}`);
+          }
+        });
+
+      // ADMIN: View All Coupons (Shows all private data and sold status)
+      async function loadAdminCoupons() {
+        const res = await fetch("/api/v1/admin/products");
+        const products = await res.json();
+        const div = document.getElementById("admin-catalog");
+        div.innerHTML = "";
+
+        products.forEach((p) => {
+          const status = p.is_sold
+            ? '<span class="sold">SOLD OUT</span>'
+            : '<span style="color: green;">AVAILABLE</span>';
+          div.innerHTML += `
+                    <div class="card admin-card">
+                        <strong>${p.name}</strong> - ${status}<br>
+                        Cost: $${p.cost_price} | Margin: ${p.margin_percentage}% | Minimum Sell Price: $${p.minimum_sell_price}<br>
+                        Value: ${p.value} (${p.value_type})
+                    </div>`;
+        });
+      }
+
+      // CUSTOMER: View Available Coupons (Shows only public data)
+      async function loadCustomerCoupons() {
+        const res = await fetch("/api/v1/customer/products");
+        const products = await res.json();
+        const div = document.getElementById("customer-catalog");
+        div.innerHTML = "";
+
+        if (products.length === 0) {
+          div.innerHTML = "<p>No coupons currently available.</p>";
+          return;
+        }
+
+        products.forEach((p) => {
+          div.innerHTML += `
+                    <div class="card">
+                        <h3>${p.name}</h3>
+                        <p>${p.description}</p>
+                        <p><strong>Price: $${p.price}</strong></p>
+                        <button onclick="purchase('${p.id}')">Buy Now</button>
+                    </div>`;
+        });
+      }
+
+      // CUSTOMER: Purchase Coupon
+      async function purchase(id) {
+        const res = await fetch(`/api/v1/customer/products/${id}/purchase`, {
+          method: "POST",
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+          alert(`Success! Your coupon value is: ${result.value}`);
+        } else {
+          alert(`Error: ${result.message}`);
+        }
+
+        // Refresh both views to reflect the sold status
+        loadCustomerCoupons();
+        loadAdminCoupons();
+      }
+
+      // Load data initially
+      loadCustomerCoupons();
+    </script>
+  </body>
+</html>

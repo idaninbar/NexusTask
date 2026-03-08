@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # This points to the "mongo" service defined below
+      - MONGO_URI=mongodb://mongo:27017/digital_coupon
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27018:27017"
+    volumes:
+      # This ensures your database data isn't deleted when the container stops
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
